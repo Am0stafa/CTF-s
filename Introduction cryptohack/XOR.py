@@ -2,7 +2,13 @@ def decimalToBinary(n):
     return bin(n).replace("0b", "")
     
 def binaryToDecimal(n):
-    return int(n,2)      
+    return int(n,2)    
+
+def xORtwoBits():
+    a="11011111101100110110011001011101000"
+    b="11001011101100111000011100001100001"
+    y=int(a,2) ^ int(b,2)
+    return '{0:b}'.format(y)
 
 def xOR(val1,va2):
     collector = ''
