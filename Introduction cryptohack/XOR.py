@@ -124,3 +124,15 @@ def breakXOREncryption():
     print("Flag:")
     print(flag)
 
+
+
+def xorEncrypted():
+    encryptedMsg = "0e0b213f26041e480b26217f27342e175d0e070a3c5b103e2526217f27342e175d0e077e263451150104"
+    encryptedMsg_ord = [o for o in bytes.fromhex(encryptedMsg)]
+    key='myXORkey'
+    key_ord = [ord(c) for c in key]
+    val = []
+    for i in range(len(encryptedMsg_ord)):
+        val.append(encryptedMsg_ord[i] ^ key_ord[i%len(key)])
+    val = "".join(chr(o) for o in flag)
+    return val
