@@ -1,3 +1,6 @@
+
+#! same key vulnerability: XOR 2 encrypted messages then xor one decrypted
+
 def decimalToBinary(n):
     return bin(n).replace("0b", "")
     
