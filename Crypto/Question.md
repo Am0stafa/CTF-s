@@ -12,11 +12,5 @@
 
 [Your steps to solve the problem goes here step by step explaining each step.]
 
-<approach>
-1. [Step 1: Describe the first step in your approach]
-2. [Step 2: Outline the next step]
-3. [Continue with additional steps as needed]
-</approach>
-
 
 ---
