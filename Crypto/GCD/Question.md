@@ -8,6 +8,8 @@ For example:
 
 We say that for any two integers a, b, if gcd(a, b) = 1 then a and b are coprime integers.
 
+**That is an important property of GCD; two prime numbers gcd is 1 and two coprime numbers gcd is 1**
+
 Important properties:
 - If a and b are prime, they are also coprime
 - If a is prime and b < a then a and b are coprime
@@ -65,4 +67,5 @@ This algorithm is efficient because:
 ## The Solution:
 
 ### Implementation Overview
+
 My implementation of Euclid's Algorithm is using both binary operations and efficient modular arithmetic. This implementation combines classical algorithmic optimization with binary operations as optimizations.
