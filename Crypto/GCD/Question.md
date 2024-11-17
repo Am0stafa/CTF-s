@@ -12,8 +12,6 @@ We say that for any two integers a, b, if gcd(a, b) = 1 then a and b are coprime
 
 **If a and b are prime, they are also coprime**
 
-**If a is prime and b < a then a and b are coprime**
-
 Important properties:
 - If a and b are prime, they are also coprime
 - If a is prime and b < a then a and b are coprime
