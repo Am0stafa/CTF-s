@@ -7,7 +7,7 @@ def gcd(a: int, b: int) -> int:
     
     # Optimization 1: Handle common cases immediately
     if a == b: return a
-    if a == 1 or b == 1: return 1  # If either is 1, GCD is 1
+    if a == 1 or b == 1: return 1
     
     # Optimization 2: Quick check for coprime numbers
     if a % 2 == 1 and b % 2 == 1:
@@ -39,12 +39,13 @@ def gcd(a: int, b: int) -> int:
             a, b = b, a
             
         # Reduce larger number
-        a = (a - b) >> 1  # Divide by 2 since difference of odds is even
+        a = a - b  # Remove unconditional shift, just subtract
         
     # Restore common factors of 2
     return a << shift
 
 
 # Test the implementation
-result = gcd(66528, 52920)  # Should output 24
-print(result)
+a = 12
+b = 8
+print(gcd(a, b))
