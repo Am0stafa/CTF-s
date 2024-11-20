@@ -32,7 +32,8 @@ This is a variant of the "Common Modulus Attack" combined with a system of equat
 ---
 ## The Solution:
 
-[Your steps to solve the problem goes here step by step explaining each step.]
+<img width="703" alt="Screenshot 2024-11-20 at 10 44 43 PM" src="https://github.com/user-attachments/assets/51e72df0-5656-44b5-9bee-41bc9a7a63fd">
+
 
 
 ---
