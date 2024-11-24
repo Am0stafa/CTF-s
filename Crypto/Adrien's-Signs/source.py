@@ -25,61 +25,53 @@ def encrypt_flag(flag):
 # n (result)
 # a (base)
 # p (modulus)
-# We need to find e (exponent)
-# A classic DLP problem
 
-def decrypt_flag(encrypted_values, p):
+from Crypto.Util.number import long_to_bytes
+
+def is_quadratic_residue(n, p):
     """
-    Decrypt the flag using quadratic residues
+    Check if n is a quadratic residue modulo p using Euler's criterion
+    Returns True if n is a quadratic residue, False otherwise
     """
-    # Calculate power for quadratic residue check
-    power = (p + 1) // 4
-    bits = []
+    return pow(n, (p-1)//2, p) == 1
+
+def decrypt_flag(ciphertext, p):
+    """
+    Decrypt the flag by checking quadratic residues
+    Args:
+        ciphertext: List of encrypted values
+        p: Prime modulus where p ≡ 3 (mod 4)
+    Returns:
+        Decrypted flag as bytes
+    """
+    # Collect bits by checking quadratic residues
+    bits = ''
+    for n in ciphertext:
+        # If n is a quadratic residue, the bit was 1
+        # Otherwise, the bit was 0
+        bit = '1' if is_quadratic_residue(n, p) else '0'
+        bits += bit
     
-    for n in encrypted_values:
-        # Calculate x = n * (p-n) mod p
-        # This gives us a^(2e) mod p
-        x = (n * (p - n)) % p
-        
-        # Calculate the square root using p ≡ 3 (mod 4) property
-        sqrt = pow(x, power, p)
-        
-        # If sqrt equals the original n, it was a positive value (bit 0)
-        # If -sqrt equals the original n, it was a negative value (bit 1)
-        if sqrt == n:
-            bits.append('0')
-        elif (p - sqrt) == n:
-            bits.append('1')
-    
-    # Convert bits to bytes
-    binary_str = ''.join(bits)
+    # Convert binary string to bytes
+    # Process 8 bits at a time to form bytes
     flag_bytes = []
-    
-    # Convert each 8 bits to a character
-    for i in range(0, len(binary_str), 8):
-        byte = binary_str[i:i+8]
+    for i in range(0, len(bits), 8):
+        byte = bits[i:i+8]
         flag_bytes.append(int(byte, 2))
     
-    return bytes(flag_bytes).decode()
+    return bytes(flag_bytes)
 
-
-
-
-if __name__ == "__main__":
-    # Change to the directory containing the script
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    os.chdir(script_dir)
-
+def main():
+    # Given parameters
+    p = 1007621497415251  # Prime modulus
+    
     # Read encrypted values
     with open('output.txt', 'r') as f:
-        content = f.read()
-        encrypted_values = eval(content)
-
-    # Debug: Print first few values and their interpretations
-    print("First few encrypted values:")
-    for n in encrypted_values[:8]:
-        print(f"Value: {n}, {'1' if n > p//2 else '0'}")
-
+        ciphertext = eval(f.read())
+    
     # Decrypt and print the flag
-    flag = decrypt_flag(encrypted_values, p)
-    print("\nFlag:", flag)
+    flag = decrypt_flag(ciphertext, p)
+    print("Decrypted flag:", flag.decode())
+
+if __name__ == "__main__":
+    main()
