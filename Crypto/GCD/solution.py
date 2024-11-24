@@ -44,6 +44,12 @@ def gcd(a: int, b: int) -> int:
     # Restore common factors of 2
     return a << shift
 
+# simple GDC function
+def gcd_simple(a: int, b: int) -> int:
+    if b == 0:
+        return a
+    else:
+        return gcd_simple(b, a % b)
 
 # Test the implementation
 a = 12
