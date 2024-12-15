@@ -1,118 +1,134 @@
 import socket
 import json
-from typing import Tuple
 
-def connect_to_server(address: str, port: int) -> socket.socket:
-    print(f"[+] Attempting to connect to {address}:{port}")
-    s = socket.socket()
-    s.connect((address, port))
-    print("[+] Connection established successfully")
-    return s
-
-def read_until(s: socket.socket, delimiter: bytes) -> bytes:
-    print(f"[+] Reading data until delimiter: {delimiter}")
+def recv_line(s):
     data = b""
-    while not data.endswith(delimiter):
+    while not data.endswith(b"\n"):
         chunk = s.recv(1)
+        if not chunk:
+            break
         data += chunk
-        if len(data) % 50 == 0:  # Print progress every 50 bytes
-            print(f"[+] Read {len(data)} bytes so far...")
-    print(f"[+] Finished reading {len(data)} bytes")
     return data
 
-def receive_json(s: socket.socket) -> dict:
-    print("\n[+] Waiting to receive JSON data...")
-    data = read_until(s, b'\n')
-    print(f"[+] Raw received data: {data}")
-    try:
-        # Parse the custom format "Key: Value"
-        decoded = data.decode().strip()
-        key, value = decoded.split(': ', 1)
-        # Create a proper JSON-like dictionary
-        parsed_data = {key: json.loads(value)}
-        print(f"[+] Parsed data: {json.dumps(parsed_data, indent=2)}")
-        return parsed_data
-    except Exception as e:
-        print(f"[-] ERROR: Failed to parse data: {e}")
-        raise
-
-def send_json(s: socket.socket, message: dict):
-    print(f"\n[+] Sending JSON message: {json.dumps(message, indent=2)}")
-    request = json.dumps(message).encode()
-    s.sendall(request + b'\n')
-    print("[+] Message sent successfully")
+def clean_hex_string(hex_str):
+    """Clean hex string by removing quotes and ensuring 0x prefix"""
+    hex_str = hex_str.strip().strip('"\'')
+    if not hex_str.startswith('0x'):
+        hex_str = '0x' + hex_str
+    return hex_str
 
 def main():
-    print("\n=== Starting Roll-your-Own Challenge ===\n")
+    print("\n=== Roll Your Own Discrete Log Challenge ===\n")
     
-    # Connect to the server
-    s = connect_to_server('socket.cryptohack.org', 13403)
-
-    # Step 1: Receive prime q
-    print("\n=== Step 1: Receiving prime q ===")
-    data = receive_json(s)
-    q_hex = data.get('Prime generated')
-    q = int(q_hex, 16)
-    print(f"[+] Received prime q (hex): {q_hex}")
-    print(f"[+] Converted prime q (dec): {q}")
-
-    # Step 2: Choose n and g
-    print("\n=== Step 2: Calculating n and g ===")
-    n = 15  # Small composite number
-    g = 2   # Generator
-    print(f"[+] Starting with initial n={n}, g={g}")
-    iterations = 0
-    while pow(g, q, n) != 1:
-        n += 1
-        iterations += 1
-        if iterations % 100 == 0:
-            print(f"[+] Tried {iterations} values for n, current n={n}")
-    print(f"[+] Found suitable values: n={n}, g={g}")
-    print(f"[+] Verification: g^q mod n = {pow(g, q, n)}")
-
-    # Step 3: Send n and g to server
-    print("\n=== Step 3: Sending n and g to server ===")
-    payload = {'g': hex(g), 'n': hex(n)}
-    send_json(s, payload)
-
-    # Step 4: Receive h
-    print("\n=== Step 4: Receiving public key h ===")
-    data = receive_json(s)
-    h_hex = data.get('Generated my public key')
-    h = int(h_hex, 16)
-    print(f"[+] Received h (hex): {h_hex}")
-    print(f"[+] Converted h (dec): {h}")
-
-    # Step 5: Compute x
-    print("\n=== Step 5: Computing x through brute force ===")
-    found = False
-    for x in range(1, n):
-        if x % 100 == 0:
-            print(f"[+] Trying x={x}...")
-        if pow(g, x, n) == h:
-            found = True
-            print(f"[+] Found x={x}")
-            print(f"[+] Verification: g^x mod n = {pow(g, x, n)} (should equal h={h})")
-            break
+    host = "socket.cryptohack.org"
+    port = 13403
     
-    if not found:
-        print("[-] ERROR: Could not find valid x!")
-        return
+    print(f"[+] Connecting to {host}:{port}...")
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((host, port))
+    print("[+] Connected successfully!\n")
 
-    # Step 6: Send x to server
-    print("\n=== Step 6: Sending x to server ===")
-    send_json(s, {'x': hex(x)})
+    try:
+        # Receive initial prime q
+        line = recv_line(s).decode().strip()
+        print(f"[+] Raw server response: {line}")
+        
+        try:
+            q_hex = line.split(": ")[1]
+            q_hex = clean_hex_string(q_hex)
+            q = int(q_hex, 16)
+            print(f"[+] Received prime q from server:")
+            print(f"    - Hex: {q_hex}")
+            print(f"    - Decimal: {q}")
+            print(f"    - Bit length: {q.bit_length()} bits\n")
+        except (IndexError, ValueError) as e:
+            print(f"[!] Error parsing prime q: {e}")
+            raise
 
-    # Step 7: Receive the flag
-    print("\n=== Step 7: Receiving final response ===")
-    data = receive_json(s)
-    print("\n=== Final Result ===")
-    print(json.dumps(data, indent=2))
+        # Calculate our parameters g and n
+        print("[+] Calculating parameters g and n...")
+        print("    Strategy:")
+        print("    - Choose g = q + 1")
+        print("    - Choose n = q^2")
+        print("    This ensures pow(g,q,n) = 1 because:")
+        print("    - g^q mod n = (q+1)^q mod q^2")
+        print("    - When expanded, all terms except 1 will be multiples of q^2")
+        print("    - Therefore, g^q mod n = 1\n")
+        
+        g = q + 1
+        n = q * q
+
+        print(f"[+] Calculated parameters:")
+        print(f"    g = {g}")
+        print(f"    n = {n}\n")
+
+        before_input_line = recv_line(s).decode().strip()
+        print(f"[+] Server prompt: {before_input_line}")
+        
+        params = {"g": hex(g), "n": hex(n)}
+        params_json = json.dumps(params)
+        print("[+] Sending parameters to server:")
+        print(f"    {json.dumps(params, indent=4)}\n")
+        s.send((params_json + "\n").encode())
+
+        # Receive public key h
+        line = recv_line(s).decode().strip()
+        print(f"[+] Raw server response: {line}")
+        
+        try:
+            h_hex = line.split(": ")[1]
+            h_hex = clean_hex_string(h_hex)
+            h = int(h_hex, 16)
+            print(f"[+] Received server's public key h:")
+            print(f"    - Hex: {h_hex}")
+            print(f"    - Decimal: {h}\n")
+        except (IndexError, ValueError) as e:
+            print(f"[!] Error parsing public key h: {e}")
+            raise
+
+        # Compute private key x
+        print("[+] Computing server's private key x...")
+        print("    Strategy:")
+        print("    - Since h = g^x mod n")
+        print("    - And g = q + 1")
+        print("    - h = (q+1)^x mod q^2")
+        print("    - When x < q, this simplifies to: h = 1 + qx mod q^2")
+        print("    - Therefore, x = (h-1)/q\n")
+        
+        x = (h - 1) // q
+        print(f"[+] Computed private key x = {x}\n")
+
+        before_input_line = recv_line(s).decode().strip()
+        print(f"[+] Server prompt: {before_input_line}")
+        
+        answer = {"x": hex(x)}
+        answer_json = json.dumps(answer)
+        print("[+] Sending answer to server:")
+        print(f"    {json.dumps(answer, indent=4)}\n")
+        s.send((answer_json + "\n").encode())
+
+        # Receive final response
+        line = recv_line(s).decode().strip()
+        try:
+            response = json.loads(line)
+            print("[+] Server response:")
+            print(f"    {json.dumps(response, indent=4)}\n")
+            
+            if "flag" in response:
+                print("[+] Successfully retrieved flag!")
+                print(f"[+] Flag: {response['flag']}")
+            elif "error" in response:
+                print(f"[!] Server returned error: {response['error']}")
+            
+        except json.JSONDecodeError as e:
+            print(f"[!] Error parsing server response: {e}")
+            print(f"[!] Raw response: {line}")
+
+    except Exception as e:
+        print(f"[!] An error occurred: {e}")
+    finally:
+        s.close()
+        print("[+] Connection closed")
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"\n[-] ERROR: Script failed with exception: {type(e).__name__}")
-        print(f"[-] Error message: {str(e)}")
-        raise
+    main()
