@@ -154,6 +154,6 @@ return x
    - Simple multiplication and modulo operations
 
 ### Conclusion
-This challenge cleverly demonstrates how the security of the discrete logarithm problem relies heavily on proper parameter selection. By allowing us to choose our own parameters, the challenge lets us transform a traditionally hard problem into a trivially solvable one.
+This challenge cleverly demonstrates how the security of the discrete logarithm problem relies heavily on proper parameter selection. By allowing us to choose our own parameters, the challenge lets us transform a traditionally hard problem into a trivially solvable one. Pascal_Paillier!
 
 ---

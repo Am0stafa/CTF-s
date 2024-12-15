@@ -2,20 +2,26 @@ import socket
 import json
 
 def recv_line(s):
+    """Receive a line from the socket with status indicator"""
+    print("[*] Waiting for server response...", end='\r')
     data = b""
     while not data.endswith(b"\n"):
         chunk = s.recv(1)
         if not chunk:
             break
         data += chunk
+    print("[+] Received server response    ")  # Clear the waiting message
     return data
 
-def clean_hex_string(hex_str):
-    """Clean hex string by removing quotes and ensuring 0x prefix"""
-    hex_str = hex_str.strip().strip('"\'')
-    if not hex_str.startswith('0x'):
-        hex_str = '0x' + hex_str
-    return hex_str
+def verify_params(g, q, n):
+    """Verify that our parameters satisfy the server's requirements"""
+    if g < 2:
+        return False, "g must be >= 2"
+    if n < 2:
+        return False, "n must be >= 2"
+    if pow(g, q, n) != 1:
+        return False, "pow(g,q,n) must equal 1"
+    return True, "Parameters valid"
 
 def main():
     print("\n=== Roll Your Own Discrete Log Challenge ===\n")
@@ -29,106 +35,92 @@ def main():
     print("[+] Connected successfully!\n")
 
     try:
-        # Receive initial prime q
+        # Get prime q
         line = recv_line(s).decode().strip()
-        print(f"[+] Raw server response: {line}")
+        if "Prime generated:" not in line:
+            raise ValueError(f"Expected prime, got: {line}")
         
-        try:
-            q_hex = line.split(": ")[1]
-            q_hex = clean_hex_string(q_hex)
-            q = int(q_hex, 16)
-            print(f"[+] Received prime q from server:")
-            print(f"    - Hex: {q_hex}")
-            print(f"    - Decimal: {q}")
-            print(f"    - Bit length: {q.bit_length()} bits\n")
-        except (IndexError, ValueError) as e:
-            print(f"[!] Error parsing prime q: {e}")
-            raise
+        q_hex = line.split("Prime generated:")[1].strip().strip('"')
+        q = int(q_hex, 16)
+        print(f"[+] Received prime q:")
+        print(f"    - Hex: 0x{q:x}")
+        print(f"    - Decimal: {q}")
+        print(f"    - Bit length: {q.bit_length()} bits\n")
 
-        # Calculate our parameters g and n
+        # Calculate and verify parameters
         print("[+] Calculating parameters g and n...")
-        print("    Strategy:")
-        print("    - Choose g = q + 1")
-        print("    - Choose n = q^2")
-        print("    This ensures pow(g,q,n) = 1 because:")
-        print("    - g^q mod n = (q+1)^q mod q^2")
-        print("    - When expanded, all terms except 1 will be multiples of q^2")
-        print("    - Therefore, g^q mod n = 1\n")
-        
         g = q + 1
         n = q * q
-
-        print(f"[+] Calculated parameters:")
+        
+        valid, msg = verify_params(g, q, n)
+        if not valid:
+            raise ValueError(f"Parameter validation failed: {msg}")
+        
+        print("[+] Parameters verified:")
         print(f"    g = {g}")
-        print(f"    n = {n}\n")
+        print(f"    n = {n}")
+        print(f"    pow(g,q,n) = {pow(g,q,n)}\n")
 
-        before_input_line = recv_line(s).decode().strip()
-        print(f"[+] Server prompt: {before_input_line}")
+        # Send parameters immediately
+        params = {
+            "g": f"0x{g:x}",
+            "n": f"0x{n:x}"
+        }
         
-        params = {"g": hex(g), "n": hex(n)}
-        params_json = json.dumps(params)
-        print("[+] Sending parameters to server:")
-        print(f"    {json.dumps(params, indent=4)}\n")
-        s.send((params_json + "\n").encode())
+        print("[+] Sending parameters:")
+        print(json.dumps(params, indent=4))
+        s.send((json.dumps(params) + "\n").encode())
+        print("[+] Parameters sent\n")
 
-        # Receive public key h
+        # Get public key
+        print("[*] Waiting for public key...")
         line = recv_line(s).decode().strip()
-        print(f"[+] Raw server response: {line}")
+        if "Generated my public key:" not in line:
+            raise ValueError(f"Expected public key, got: {line}")
         
-        try:
-            h_hex = line.split(": ")[1]
-            h_hex = clean_hex_string(h_hex)
-            h = int(h_hex, 16)
-            print(f"[+] Received server's public key h:")
-            print(f"    - Hex: {h_hex}")
-            print(f"    - Decimal: {h}\n")
-        except (IndexError, ValueError) as e:
-            print(f"[!] Error parsing public key h: {e}")
-            raise
+        h_hex = line.split("Generated my public key:")[1].strip().strip('"')
+        h = int(h_hex, 16)
+        print(f"[+] Received public key h:")
+        print(f"    - Hex: 0x{h:x}")
+        print(f"    - Decimal: {h}\n")
 
-        # Compute private key x
-        print("[+] Computing server's private key x...")
-        print("    Strategy:")
-        print("    - Since h = g^x mod n")
-        print("    - And g = q + 1")
-        print("    - h = (q+1)^x mod q^2")
-        print("    - When x < q, this simplifies to: h = 1 + qx mod q^2")
-        print("    - Therefore, x = (h-1)/q\n")
-        
+        # Calculate private key
+        print("[+] Computing private key...")
         x = (h - 1) // q
-        print(f"[+] Computed private key x = {x}\n")
-
-        before_input_line = recv_line(s).decode().strip()
-        print(f"[+] Server prompt: {before_input_line}")
+        print(f"[+] Computed x = {x}")
         
-        answer = {"x": hex(x)}
-        answer_json = json.dumps(answer)
-        print("[+] Sending answer to server:")
-        print(f"    {json.dumps(answer, indent=4)}\n")
-        s.send((answer_json + "\n").encode())
+        # Verify our solution
+        computed_h = pow(g, x, n)
+        if computed_h != h:
+            raise ValueError(f"Solution verification failed: {computed_h} != {h}")
+        print("[+] Solution verified: pow(g,x,n) == h\n")
 
-        # Receive final response
-        line = recv_line(s).decode().strip()
+        # Send solution
+        answer = {"x": f"0x{x:x}"}
+        print("[+] Sending solution:")
+        print(json.dumps(answer, indent=4))
+        s.send((json.dumps(answer) + "\n").encode())
+        print("[+] Solution sent\n")
+
+        # Get flag
+        print("[*] Waiting for flag...")
+        response = recv_line(s).decode().strip()
         try:
-            response = json.loads(line)
-            print("[+] Server response:")
-            print(f"    {json.dumps(response, indent=4)}\n")
-            
-            if "flag" in response:
-                print("[+] Successfully retrieved flag!")
-                print(f"[+] Flag: {response['flag']}")
-            elif "error" in response:
-                print(f"[!] Server returned error: {response['error']}")
-            
-        except json.JSONDecodeError as e:
-            print(f"[!] Error parsing server response: {e}")
-            print(f"[!] Raw response: {line}")
+            result = json.loads(response)
+            if "flag" in result:
+                print(f"[+] Success! Flag: {result['flag']}")
+            elif "error" in result:
+                print(f"[!] Server error: {result['error']}")
+            else:
+                print(f"[!] Unexpected response: {response}")
+        except json.JSONDecodeError:
+            print(f"[!] Failed to parse response: {response}")
 
     except Exception as e:
-        print(f"[!] An error occurred: {e}")
+        print(f"[!] Error: {e}")
     finally:
         s.close()
-        print("[+] Connection closed")
+        print("\n[+] Connection closed")
 
 if __name__ == "__main__":
     main()
